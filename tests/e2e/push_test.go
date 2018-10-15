@@ -47,6 +47,49 @@ func TestPush(t *testing.T) {
 	}
 }
 
+func TestPushWithContentType(t *testing.T) {
+	t.Log("Test basic push action with Content-Type")
+
+	name := "test-push"
+	dir := "charts"
+	setupRepo(t, name, dir)
+	defer teardownRepo(t, name)
+
+	key := dir + "/foo-1.2.3.tgz"
+
+	// set a cleanup in beforehand
+	defer func() {
+		if err := mc.RemoveObject(name, key); err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+	}()
+
+	contentType := "application/x-gzip"
+	cmd, stdout, stderr := command(fmt.Sprintf("helm s3 push --content-type=%s testdata/foo-1.2.3.tgz %s", contentType, name))
+	if err := cmd.Run(); err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if stdout.String() != "" {
+		t.Errorf("Expected stdout to be empty, but got %q", stdout.String())
+	}
+	if stderr.String() != "" {
+		t.Errorf("Expected stderr to be empty, but got %q", stderr.String())
+	}
+
+	// Check that chart was actually pushed
+	obj, err := mc.StatObject(name, key, minio.StatObjectOptions{})
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if obj.Key != key {
+		t.Errorf("Expected key to be %q but got %q", key, obj.Key)
+	}
+	if obj.ContentType != contentType {
+		t.Errorf("Expected ContentType to be %q but got %q", contentType, obj.ContentType)
+	}
+}
+
 func TestPushDryRun(t *testing.T) {
 	t.Log("Test push action with --dry-run flag")
 
