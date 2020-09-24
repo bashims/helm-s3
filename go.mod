@@ -10,7 +10,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.0.1
 	github.com/aws/aws-sdk-go v1.34.30
 	github.com/ghodss/yaml v1.0.0
-	github.com/hypnoglow/helm-s3 v0.9.2
 	github.com/minio/minio-go/v6 v6.0.40
 	github.com/pkg/errors v0.9.1
 	github.com/smartystreets/goconvey v0.0.0-20190731233626-505e41936337 // indirect
