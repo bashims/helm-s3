@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -244,14 +245,16 @@ func (s *Storage) Exists(ctx context.Context, uri string) (bool, error) {
 	return true, nil
 }
 
-// PutChart puts the chart file to the storage.
+// PutChart puts the chart file to the storage. If the chart is signed and there is a provenance file,
+// the provenance file will also be uploaded.
 // uri must be in the form of s3 protocol: s3://bucket-name/key[...].
-func (s *Storage) PutChart(ctx context.Context, uri string, r io.Reader, chartMeta, acl string, chartDigest string, contentType string) (string, error) {
+func (s *Storage) PutChart(ctx context.Context, uri string, f *os.File, chartDir string, chartMeta, acl string, chartDigest string, contentType string) (string, error) {
 	bucket, key, err := parseURI(uri)
 	if err != nil {
 		return "", err
 	}
-	result, err := s3manager.NewUploader(s.session).UploadWithContext(
+	uploader := s3manager.NewUploader(s.session)
+	result, err := uploader.UploadWithContext(
 		ctx,
 		&s3manager.UploadInput{
 			Bucket:               aws.String(bucket),
@@ -259,12 +262,44 @@ func (s *Storage) PutChart(ctx context.Context, uri string, r io.Reader, chartMe
 			ACL:                  aws.String(acl),
 			ContentType:          aws.String(contentType),
 			ServerSideEncryption: getSSE(),
-			Body:                 r,
+			Body:                 f,
 			Metadata:             assembleObjectMetadata(chartMeta, chartDigest),
 		},
 	)
 	if err != nil {
 		return "", errors.Wrap(err, "upload object to s3")
+	}
+
+	pFileName := filepath.Join(chartDir, f.Name()+".prov")
+	pFileInfo, err := os.Stat(pFileName)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			return result.Location, nil
+		} else {
+			return "", errors.Wrap(err, fmt.Sprintf("failed to stat provenance file: [%s]", pFileName))
+		}
+	}
+
+	pFile, err := os.Open(pFileInfo.Name())
+	defer pFile.Close()
+	if err != nil {
+		return "", errors.Wrap(err, "open provenance file")
+	}
+
+	pFileKey := key + ".prov"
+	if _, err := uploader.UploadWithContext(
+		ctx,
+		&s3manager.UploadInput{
+			Bucket:               aws.String(bucket),
+			Key:                  &pFileKey,
+			ACL:                  aws.String(acl),
+			ContentType:          aws.String("text/plain"),
+			ServerSideEncryption: getSSE(),
+			Body:                 pFile,
+		},
+	); err != nil {
+		return "", errors.Wrap(err, "upload provenance file to s3")
 	}
 
 	return result.Location, nil

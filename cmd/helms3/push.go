@@ -120,7 +120,7 @@ func (act pushAction) Run(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if _, err := storage.PutChart(ctx, repoEntry.URL()+"/"+fname, fchart, string(chartMetaJSON), act.acl, hash, act.contentType); err != nil {
+		if _, err := storage.PutChart(ctx, repoEntry.URL()+"/"+fname, fchart, dir, string(chartMetaJSON), act.acl, hash, act.contentType); err != nil {
 			return errors.WithMessage(err, "upload chart to s3")
 		}
 	}
