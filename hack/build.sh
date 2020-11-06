@@ -17,4 +17,4 @@ if [ -z "${version}" ]; then
 fi
 
 cd "${GOPATH}/src/${pkg}"
-go build -o bin/helms3 -ldflags "-X main.version=${version}" ./cmd/helms3
+go build -mod vendor -o bin/helms3 -ldflags "-X main.version=${version} -linkmode external -extldflags -static" ./cmd/helms3
